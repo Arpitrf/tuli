@@ -1,0 +1,2 @@
+Mujoco specific commands:
+1. env.sim.model.geom()
