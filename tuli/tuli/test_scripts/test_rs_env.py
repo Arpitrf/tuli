@@ -55,12 +55,12 @@ active_robot = env.robots[device.active_robot]
 from copy import deepcopy
 
 # breakpoint()
-# success = env.perform_wiping_skill(num_cycles=1)
-# if success:
-#     print("Wiping skill completed successfully")
-# else:
-#     print("Wiping skill failed")
-# breakpoint()
+success = env.perform_wiping_skill(num_cycles=1)
+if success:
+    print("Wiping skill completed successfully")
+else:
+    print("Wiping skill failed")
+breakpoint()
 
 # do visualization
 # for i in range(10000):

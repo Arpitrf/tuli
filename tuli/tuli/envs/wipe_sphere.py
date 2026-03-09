@@ -95,6 +95,13 @@ class WipeSphere(Wipe):
         if self.extended_action_steps <= 1:
             # If extended_action_steps is 1 or less, use normal step behavior
             return super().step(action)
+
+        # Doing it here because if I do in reset, the variables are reset even before I can access them in the main script
+        if self.timestep == 0:
+            self.force_history = []
+            self.all_peak_freqs = []
+            self.contact_history = []
+            self.rgb_image_list = []
         
         # Execute the action for multiple steps
         return self._execute_extended_action(action, self.extended_action_steps)
@@ -133,7 +140,13 @@ class WipeSphere(Wipe):
             
             # Execute one step with the action
             obs, reward, done, info = super().step(action)
-            
+
+            # # save images
+            # img = self.sim.render(height=256, width=256, camera_name="frontview")
+            # img = img[::-1, :, :]
+            img = np.zeros((256, 256, 3))
+            self.rgb_image_list.append(img)
+
             # Accumulate reward
             accumulated_reward += reward
             

@@ -15,6 +15,7 @@ from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
 from tuli.envs import WipeSphere, WipeWashboard
+from tuli.utils.viz_utils import plot_rollout_video
 
 # Register the environment
 robosuite.environments.REGISTERED_ENVS["WipeSphere"] = WipeSphere
@@ -125,8 +126,10 @@ def make_robosuite_env(idx, capture_video, run_name, gamma, task=None):
             robots=["Panda"],             # load a Sawyer robot and a Panda robot
             gripper_types="SphereGripper",                # use default grippers per robot arm
             controller_configs=controller_config,   # arms controlled via OSC, other parts via JOINT_POSITION/JOINT_VELOCITY
-            has_renderer=True,                     # no on-screen rendering
-            has_offscreen_renderer=False,           # no off-screen rendering
+            has_renderer=False,                     # no on-screen rendering
+            has_offscreen_renderer=True,           # no off-screen rendering
+            camera_heights=256,
+            camera_widths=256,
             control_freq=20,                        # 20 hz control for applied actions
             horizon=500,                            # each episode terminates after 200 steps
             use_object_obs=True,                    # provide object observations to agent
@@ -233,6 +236,8 @@ if __name__ == "__main__":
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
+    os.makedirs(f"runs/{run_name}/videos", exist_ok=True)
+
     # TRY NOT TO MODIFY: seeding
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -271,7 +276,6 @@ if __name__ == "__main__":
     next_obs, _ = envs.reset(seed=args.seed)
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
-    # breakpoint()
 
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
@@ -280,6 +284,7 @@ if __name__ == "__main__":
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
+        episode_counter = 0
         # Policy rollout
         for step in range(0, args.num_steps):
             global_step += args.num_envs
@@ -301,14 +306,30 @@ if __name__ == "__main__":
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
             # breakpoint()
 
+            # print("---- info: ", step, infos.keys())
+            # Means that the episode is done
             if "final_info" in infos:
                 # breakpoint()
+                # log plot video
+                episode_counter += 1
+                if episode_counter % 10 == 0:
+                    force_history = envs.envs[0].force_history
+                    all_peak_freqs = envs.envs[0].all_peak_freqs
+                    contact_history = envs.envs[0].contact_history
+                    rgb_image_list = envs.envs[0].rgb_image_list
+                    print("len(rgb_image_list): ", len(rgb_image_list))
+                    print("len(force_history): ", len(force_history))
+                    print("len(all_peak_freqs): ", len(all_peak_freqs))
+                    print("len(contact_history): ", len(contact_history))
+                    plot_rollout_video(rgb_image_list, force_history, all_peak_freqs, contact_history, output_video_path=f"runs/{run_name}/videos/{iteration}_{step}.mp4")
+                
                 for info in infos["final_info"]:
                     if info and "episode" in info:
                         print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                        # breakpoint()
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
-                        writer.add_scalar("charts/amount_wiped", infos["final_info"][0]["amount_wiped"], global_step)
+                        # writer.add_scalar("charts/amount_wiped", infos["final_info"][0]["amount_wiped"], global_step)
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -407,6 +428,13 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+
+        if iteration % 10 == 0:
+            if args.save_model:
+                print("Saving model...")
+                model_path = f"runs/{run_name}/{args.exp_name}_{iteration}.cleanrl_model"
+                torch.save(agent.state_dict(), model_path)
+                print(f"model saved to {model_path}")
 
     if args.save_model:
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"

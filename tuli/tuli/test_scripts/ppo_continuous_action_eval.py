@@ -73,8 +73,11 @@ def make_robosuite_env(idx, capture_video, run_name, gamma, task=None):
     def thunk():
         # controller_config = load_composite_controller_config(controller="BASIC")
         controller_config = load_composite_controller_config(robot="Panda")
+        controller_config["body_parts"]["right"]["type"] = "OSC_POSITION"
+        controller_config["body_parts"]["right"]["output_max"] = [0.05, 0.05, 0.05]
+        controller_config["body_parts"]["right"]["output_min"] = [-0.05, -0.05, -0.05]
         env = robosuite.make(
-            "Wipe",
+            "WipeSphere",
             robots=["Panda"],             # load a Sawyer robot and a Panda robot
             gripper_types="SphereGripper",                # use default grippers per robot arm
             controller_configs=controller_config,   # arms controlled via OSC, other parts via JOINT_POSITION/JOINT_VELOCITY
@@ -191,7 +194,9 @@ if __name__ == "__main__":
 
     # from tuli.test_scripts.ppo_continuous_action import Agent, make_robosuite_env
 
-    model_path = f"/home/arpit/test_projects/tuli/runs/wipe_sensory_reward_6dof/ppo_continuous_action.cleanrl_model"
+    # model_path = f"/home/arpit/test_projects/tuli/runs/wipe_sensory_reward_6dof/ppo_continuous_action.cleanrl_model"
+    model_path = f"/home/arpit/test_projects/tuli/tuli/runs/wipe__ppo_continuous_action__1__1765487996/ppo_continuous_action_300.cleanrl_model"
+    
 
     episodic_returns = evaluate(
             model_path,
